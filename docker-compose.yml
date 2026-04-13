@@ -1,0 +1,37 @@
+services:
+
+  # ── Your local music server ─────────────────────────────────────────────────
+  # network_mode: host is required so the container can receive SSDP multicast
+  # UDP packets (239.255.255.250:1900) from Sonos players on the LAN.
+  # With host networking, "ports" mappings are ignored — the server binds
+  # directly to the host's port 8080.
+  sonos-server:
+    build: .
+    container_name: maggie-sonos-server
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      # Your MP3 folders — add music here and it shows up in Sonos immediately
+      - ./media_assets:/app/media_assets:ro
+      # Persist OAuth tokens between restarts
+      - ./tokens.json:/app/tokens.json
+    env_file:
+      - .env
+    environment:
+      - MEDIA_DIR=/app/media_assets
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+
+  # ── ngrok tunnel — exposes port 8080 via a stable static domain ────────────
+  # NGROK_DOMAIN is a permanent URL claimed once at dashboard.ngrok.com/domains
+  # It never changes across restarts, so the developer portal URL stays valid.
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: maggie-ngrok
+    restart: unless-stopped
+    command: http localhost:8080 --domain=${NGROK_DOMAIN} --log=stdout
+    ports:
+      - "4040:4040"   # ngrok web UI at http://localhost:4040
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    network_mode: host

@@ -1,0 +1,3 @@
+[submodule "media_assets"]
+	path = media_assets
+	url = git@github.com:mttong/media_assets.git
