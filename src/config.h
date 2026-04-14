@@ -39,7 +39,8 @@ struct Config {
         cfg.server_host        = env_or("SERVER_HOST",    "0.0.0.0");
         cfg.server_port        = std::stoi(env_or("SERVER_PORT", "8080"));
         // PUBLIC_URL takes precedence; NGROK_URL kept for local dev backward compat
-        cfg.ngrok_url          = env_or("PUBLIC_URL", env_or("NGROK_URL", ""));
+        cfg.ngrok_url          = env_or("PUBLIC_URL", "");
+        if (cfg.ngrok_url.empty()) cfg.ngrok_url = env_or("NGROK_URL", "");
         cfg.media_base_url     = env_or("MEDIA_BASE_URL", "");  // defaults to ngrok_url
         cfg.sonos_client_id    = env_or("SONOS_CLIENT_ID",     "");
         cfg.sonos_client_secret= env_or("SONOS_CLIENT_SECRET", "");
