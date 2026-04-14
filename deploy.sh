@@ -47,9 +47,10 @@ echo -e "${GREEN}═════════════════════
 echo -e "${GREEN}  Server is running!${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 echo ""
-echo -e "  SMAPI endpoint:  https://${PUBLIC_DOMAIN}/smapi"
-echo -e "  Redirect URI:    https://${PUBLIC_DOMAIN}/oauth/callback"
-echo -e "  Authorize:       https://${PUBLIC_DOMAIN}/auth/login"
+PUBLIC=${PUBLIC_DOMAIN:-${NGROK_DOMAIN:-${NGROK_URL:-unknown}}}
+echo -e "  SMAPI endpoint:  https://${PUBLIC}/smapi"
+echo -e "  Redirect URI:    https://${PUBLIC}/oauth/callback"
+echo -e "  Authorize:       https://${PUBLIC}/auth/login"
 echo ""
 echo -e "${BLUE}Streaming logs (Ctrl+C to stop following, server keeps running)...${NC}"
 $DC -f docker-compose.cloud.yml logs -f sonos-server
