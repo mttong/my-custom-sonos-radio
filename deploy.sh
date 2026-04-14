@@ -4,6 +4,13 @@ set -euo pipefail
 
 BLUE='\033[0;34m'; GREEN='\033[0;32m'; RED='\033[0;31m'; NC='\033[0m'
 
+# Use 'docker compose' plugin if available, fall back to 'docker-compose'
+if docker compose version &>/dev/null 2>&1; then
+    DC="docker compose"
+else
+    DC="docker-compose"
+fi
+
 if [ ! -f .env.cloud ]; then
     echo -e "${RED}ERROR: .env.cloud not found.${NC}"
     echo "  cp .env.cloud.example .env.cloud  then fill in your domain and credentials"
@@ -18,7 +25,7 @@ echo -e "${BLUE}Pulling latest from main...${NC}"
 git pull origin main
 
 echo -e "${BLUE}Building and starting services...${NC}"
-docker-compose -f docker-compose.cloud.yml up --build -d
+$DC -f docker-compose.cloud.yml up --build -d
 
 echo -ne "${BLUE}Waiting for server...${NC} "
 for i in $(seq 1 40); do
@@ -27,7 +34,7 @@ for i in $(seq 1 40); do
         break
     fi
     if [ "$i" -eq 40 ]; then
-        echo -e "${RED}timed out. Check logs: docker-compose -f docker-compose.cloud.yml logs${NC}"
+        echo -e "${RED}timed out. Check logs: $DC -f docker-compose.cloud.yml logs${NC}"
         exit 1
     fi
     sleep 1
@@ -45,4 +52,4 @@ echo -e "  Redirect URI:    https://${PUBLIC_DOMAIN}/oauth/callback"
 echo -e "  Authorize:       https://${PUBLIC_DOMAIN}/auth/login"
 echo ""
 echo -e "${BLUE}Streaming logs (Ctrl+C to stop following, server keeps running)...${NC}"
-docker-compose -f docker-compose.cloud.yml logs -f sonos-server
+$DC -f docker-compose.cloud.yml logs -f sonos-server

@@ -30,6 +30,8 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
+    env_file:
+      - .env.cloud
     networks:
       - sonos-net
 

@@ -4,9 +4,16 @@ set -euo pipefail
 
 BLUE='\033[0;34m'; GREEN='\033[0;32m'; NC='\033[0m'
 
+# Use 'docker compose' plugin if available, fall back to 'docker-compose'
+if docker compose version &>/dev/null 2>&1; then
+    DC="docker compose"
+else
+    DC="docker-compose"
+fi
+
 echo -e "${BLUE}Stopping Maggie Sonos Integration...${NC}"
 
-docker-compose down
+$DC down
 
 # Release ports if anything is still holding them
 for port in 4040 8080; do

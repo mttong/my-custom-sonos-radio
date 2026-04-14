@@ -4,6 +4,13 @@ set -euo pipefail
 
 BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 
+# Use 'docker compose' plugin if available, fall back to '$DC'
+if docker compose version &>/dev/null 2>&1; then
+    DC="docker compose"
+else
+    DC="$DC"
+fi
+
 echo -e "${BLUE}╔═══════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   Maggie Sonos Integration — Demo     ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════╝${NC}"
@@ -30,7 +37,7 @@ fi
 
 # ── Start services ─────────────────────────────────────────────────────────────
 echo -e "${BLUE}Building and starting Docker services...${NC}"
-docker-compose up --build -d
+$DC up --build -d
 
 # ── Wait for server health ─────────────────────────────────────────────────────
 echo -ne "${BLUE}Waiting for server...${NC} "
@@ -40,7 +47,7 @@ for i in $(seq 1 40); do
         break
     fi
     if [ "$i" -eq 40 ]; then
-        echo -e "${RED}timed out. Check logs: docker-compose logs sonos-server${NC}"
+        echo -e "${RED}timed out. Check logs: $DC logs sonos-server${NC}"
         exit 1
     fi
     sleep 1
@@ -78,4 +85,4 @@ fi
 # ── Tail logs ─────────────────────────────────────────────────────────────────
 echo -e "${BLUE}Streaming server logs (Ctrl+C to stop)...${NC}"
 echo ""
-docker-compose logs -f sonos-server
+$DC logs -f sonos-server
