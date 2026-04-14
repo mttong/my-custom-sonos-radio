@@ -314,7 +314,7 @@ std::string SMAPIHandler::albumArtUrl(const std::string& folder) const {
     };
     for (auto& name : candidates) {
         if (fs::exists(folder_path / name)) {
-            return cfg_.media_url_base() + "/media/"
+            return cfg_.public_base_url() + "/media/"
                    + urlEncode(folder) + "/" + urlEncode(name);
         }
     }
