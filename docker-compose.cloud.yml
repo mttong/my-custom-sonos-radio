@@ -4,8 +4,7 @@ services:
     build: .
     container_name: my-sonos-server
     restart: unless-stopped
-    expose:
-      - "8080"
+    network_mode: host
     volumes:
       - ./media_assets:/app/media_assets:ro
       - ./tokens.json:/app/tokens.json
@@ -15,29 +14,12 @@ services:
       - MEDIA_DIR=/app/media_assets
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8080
-    networks:
-      - sonos-net
 
-  caddy:
-    image: caddy:2-alpine
-    container_name: sonos-caddy
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: sonos-ngrok
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    env_file:
-      - .env.cloud
-    networks:
-      - sonos-net
-
-networks:
-  sonos-net:
-
-volumes:
-  caddy_data:
-  caddy_config:
+    command: http localhost:8080 --domain=${NGROK_DOMAIN} --log=stdout
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    network_mode: host
