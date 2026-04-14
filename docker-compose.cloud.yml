@@ -20,6 +20,6 @@ services:
     container_name: sonos-ngrok
     restart: unless-stopped
     command: http localhost:8080 --domain=${NGROK_DOMAIN} --log=stdout
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    env_file:
+      - .env.cloud
     network_mode: host
