@@ -1,0 +1,41 @@
+services:
+
+  sonos-server:
+    build: .
+    container_name: my-sonos-server
+    restart: unless-stopped
+    expose:
+      - "8080"
+    volumes:
+      - ./media_assets:/app/media_assets:ro
+      - ./tokens.json:/app/tokens.json
+    env_file:
+      - .env.cloud
+    environment:
+      - MEDIA_DIR=/app/media_assets
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+    networks:
+      - sonos-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: sonos-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - sonos-net
+
+networks:
+  sonos-net:
+
+volumes:
+  caddy_data:
+  caddy_config:

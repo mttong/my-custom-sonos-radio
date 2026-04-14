@@ -1,0 +1,3 @@
+{$PUBLIC_DOMAIN} {
+    reverse_proxy sonos-server:8080
+}

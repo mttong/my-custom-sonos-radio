@@ -8,15 +8,24 @@ using json = nlohmann::json;
 // ── ControlAPI implementation ─────────────────────────────────────────────────
 ControlAPI::ControlAPI(Config& cfg) : cfg_(cfg) {}
 
-json ControlAPI::apiGet(const std::string& path) {
-    if (cfg_.access_token.empty()) {
-        return {{"error", "not_authenticated"},
-                {"message", "Visit /auth/login to authorise with Sonos"}};
+// ── Token helpers ─────────────────────────────────────────────────────────────
+std::string ControlAPI::tokenForGroup(const std::string& group_id) const {
+    auto it = group_to_household_.find(group_id);
+    if (it != group_to_household_.end()) {
+        auto tok_it = cfg_.household_tokens.find(it->second);
+        if (tok_it != cfg_.household_tokens.end())
+            return tok_it->second.access_token;
     }
+    // Fall back to first available token
+    if (!cfg_.household_tokens.empty())
+        return cfg_.household_tokens.begin()->second.access_token;
+    return cfg_.access_token;
+}
+
+json ControlAPI::apiGetAs(const std::string& path, const std::string& token) const {
     httplib::SSLClient cli(API_HOST, 443);
     cli.set_connection_timeout(10);
-    cli.set_bearer_token_auth(cfg_.access_token.c_str());
-
+    cli.set_bearer_token_auth(token.c_str());
     auto res = cli.Get((std::string(API_BASE) + path).c_str());
     if (!res) return {{"error", "no_response"}, {"path", path}};
     if (res->status != 200) {
@@ -27,15 +36,11 @@ json ControlAPI::apiGet(const std::string& path) {
     catch (...) { return {{"error", "parse_error"}, {"body", res->body}}; }
 }
 
-json ControlAPI::apiPost(const std::string& path, const json& body) {
-    if (cfg_.access_token.empty()) {
-        return {{"error", "not_authenticated"},
-                {"message", "Visit /auth/login to authorise with Sonos"}};
-    }
+json ControlAPI::apiPostAs(const std::string& path, const std::string& token,
+                            const json& body) const {
     httplib::SSLClient cli(API_HOST, 443);
     cli.set_connection_timeout(10);
-    cli.set_bearer_token_auth(cfg_.access_token.c_str());
-
+    cli.set_bearer_token_auth(token.c_str());
     std::string body_str = body.is_null() ? "{}" : body.dump();
     auto res = cli.Post((std::string(API_BASE) + path).c_str(),
                         body_str, "application/json");
@@ -49,55 +54,82 @@ json ControlAPI::apiPost(const std::string& path, const json& body) {
     catch (...) { return {{"ok", true}}; }
 }
 
+json ControlAPI::apiGet(const std::string& path) {
+    if (cfg_.household_tokens.empty()) {
+        return {{"error", "not_authenticated"},
+                {"message", "Visit /auth/login to authorise with Sonos"}};
+    }
+    return apiGetAs(path, cfg_.household_tokens.begin()->second.access_token);
+}
+
+json ControlAPI::apiPost(const std::string& path, const json& body) {
+    if (cfg_.household_tokens.empty()) {
+        return {{"error", "not_authenticated"},
+                {"message", "Visit /auth/login to authorise with Sonos"}};
+    }
+    return apiPostAs(path, cfg_.household_tokens.begin()->second.access_token, body);
+}
+
 std::vector<SonosHousehold> ControlAPI::getHouseholds() {
     std::vector<SonosHousehold> result;
-    auto hh_json = apiGet("/households");
-    if (!hh_json.contains("households")) return result;
 
-    for (auto& hh : hh_json["households"]) {
-        SonosHousehold household;
-        household.id = hh.value("id", "");
+    // Iterate over every authorized household token
+    for (auto& [hh_id, token_pair] : cfg_.household_tokens) {
+        auto hh_json = apiGetAs("/households", token_pair.access_token);
+        if (!hh_json.contains("households")) continue;
 
-        // Fetch groups for this household
-        auto groups_json = apiGet("/households/" + household.id + "/groups");
-        if (groups_json.contains("groups")) {
-            for (auto& g : groups_json["groups"]) {
-                SonosGroup group;
-                group.id             = g.value("id", "");
-                group.name           = g.value("name", "");
-                group.coordinator_id = g.value("coordinatorId", "");
-                group.playback_state = g.value("playbackState", "");
-                household.groups.push_back(std::move(group));
+        for (auto& hh : hh_json["households"]) {
+            SonosHousehold household;
+            household.id = hh.value("id", "");
+
+            auto groups_json = apiGetAs("/households/" + household.id + "/groups",
+                                        token_pair.access_token);
+            if (groups_json.contains("groups")) {
+                for (auto& g : groups_json["groups"]) {
+                    SonosGroup group;
+                    group.id             = g.value("id", "");
+                    group.name           = g.value("name", "");
+                    group.coordinator_id = g.value("coordinatorId", "");
+                    group.playback_state = g.value("playbackState", "");
+                    // Cache which household owns this group
+                    group_to_household_[group.id] = household.id;
+                    household.groups.push_back(std::move(group));
+                }
             }
+            result.push_back(std::move(household));
         }
-        result.push_back(std::move(household));
     }
     return result;
 }
 
 json ControlAPI::play(const std::string& group_id) {
-    return apiPost("/groups/" + group_id + "/playback/play");
+    return apiPostAs("/groups/" + group_id + "/playback/play",
+                     tokenForGroup(group_id));
 }
 
 json ControlAPI::pause(const std::string& group_id) {
-    return apiPost("/groups/" + group_id + "/playback/pause");
+    return apiPostAs("/groups/" + group_id + "/playback/pause",
+                     tokenForGroup(group_id));
 }
 
 json ControlAPI::skipToNextTrack(const std::string& group_id) {
-    return apiPost("/groups/" + group_id + "/playback/skipToNextTrack");
+    return apiPostAs("/groups/" + group_id + "/playback/skipToNextTrack",
+                     tokenForGroup(group_id));
 }
 
 json ControlAPI::skipToPreviousTrack(const std::string& group_id) {
-    return apiPost("/groups/" + group_id + "/playback/skipToPreviousTrack");
+    return apiPostAs("/groups/" + group_id + "/playback/skipToPreviousTrack",
+                     tokenForGroup(group_id));
 }
 
 json ControlAPI::setVolume(const std::string& group_id, int volume) {
-    return apiPost("/groups/" + group_id + "/groupVolume",
-                   {{"volume", volume}});
+    return apiPostAs("/groups/" + group_id + "/groupVolume",
+                     tokenForGroup(group_id), {{"volume", volume}});
 }
 
 json ControlAPI::getPlaybackStatus(const std::string& group_id) {
-    return apiGet("/groups/" + group_id + "/playback");
+    return apiGetAs("/groups/" + group_id + "/playback",
+                    tokenForGroup(group_id));
 }
 
 // ── Register /api/* routes ────────────────────────────────────────────────────

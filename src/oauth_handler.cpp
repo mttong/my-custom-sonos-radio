@@ -51,10 +51,16 @@ static std::string oauthEncode(const std::string& s) {
 }
 
 // ── Persist tokens to disk ────────────────────────────────────────────────────
-static void saveTokens(const std::string& access, const std::string& refresh) {
+static void saveTokens(const Config& cfg) {
     try {
+        json j;
+        for (auto& [hh_id, pair] : cfg.household_tokens) {
+            j["households"][hh_id] = {
+                {"access_token",  pair.access_token},
+                {"refresh_token", pair.refresh_token}
+            };
+        }
         std::ofstream f(TOKEN_FILE);
-        json j = {{"access_token", access}, {"refresh_token", refresh}};
         f << j.dump(2);
     } catch (...) {}
 }
@@ -65,10 +71,31 @@ static void loadTokens(Config& cfg) {
         if (!f) return;
         json j;
         f >> j;
-        cfg.access_token  = j.value("access_token",  "");
-        cfg.refresh_token = j.value("refresh_token", "");
-        if (!cfg.access_token.empty())
-            std::cout << "[oauth] Loaded saved tokens from " << TOKEN_FILE << "\n";
+
+        if (j.contains("households")) {
+            // Current format: keyed by household ID
+            for (auto& [hh_id, tok] : j["households"].items()) {
+                TokenPair pair;
+                pair.access_token  = tok.value("access_token",  "");
+                pair.refresh_token = tok.value("refresh_token", "");
+                if (!pair.access_token.empty())
+                    cfg.household_tokens[hh_id] = pair;
+            }
+        } else if (j.contains("access_token")) {
+            // Legacy format: single token pair
+            TokenPair pair;
+            pair.access_token  = j.value("access_token",  "");
+            pair.refresh_token = j.value("refresh_token", "");
+            if (!pair.access_token.empty())
+                cfg.household_tokens["legacy"] = pair;
+        }
+
+        if (!cfg.household_tokens.empty()) {
+            cfg.access_token  = cfg.household_tokens.begin()->second.access_token;
+            cfg.refresh_token = cfg.household_tokens.begin()->second.refresh_token;
+            std::cout << "[oauth] Loaded tokens for "
+                      << cfg.household_tokens.size() << " household(s)\n";
+        }
     } catch (...) {}
 }
 
@@ -101,10 +128,35 @@ static bool exchangeCode(Config& cfg, const std::string& code) {
 
     try {
         auto j = json::parse(res->body);
-        cfg.access_token  = j.at("access_token");
-        cfg.refresh_token = j.value("refresh_token", "");
-        saveTokens(cfg.access_token, cfg.refresh_token);
-        std::cout << "[oauth] Token exchange successful\n";
+        std::string access  = j.at("access_token");
+        std::string refresh = j.value("refresh_token", "");
+
+        // Fetch the household IDs this token has access to, so we can key by them
+        std::vector<std::string> hh_ids;
+        {
+            httplib::SSLClient hh_cli("api.ws.sonos.com", 443);
+            hh_cli.set_connection_timeout(10);
+            hh_cli.set_bearer_token_auth(access.c_str());
+            auto hh_res = hh_cli.Get("/control/api/v1/households");
+            if (hh_res && hh_res->status == 200) {
+                auto hh_j = json::parse(hh_res->body);
+                for (auto& hh : hh_j.value("households", json::array()))
+                    hh_ids.push_back(hh.value("id", ""));
+            }
+        }
+        if (hh_ids.empty()) {
+            // Fallback key if household fetch failed
+            hh_ids.push_back("household_" + std::to_string(cfg.household_tokens.size()));
+        }
+
+        for (auto& hh_id : hh_ids)
+            cfg.household_tokens[hh_id] = {access, refresh};
+
+        cfg.access_token  = access;
+        cfg.refresh_token = refresh;
+        saveTokens(cfg);
+        std::cout << "[oauth] Token exchange successful — "
+                  << hh_ids.size() << " household(s) authorised\n";
         return true;
     } catch (const std::exception& e) {
         std::cerr << "[oauth] JSON parse error: " << e.what() << "\n";

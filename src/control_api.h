@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <map>
 #include <nlohmann/json.hpp>
 #include "config.h"
 
@@ -42,9 +43,22 @@ private:
     static constexpr const char* API_HOST = "api.ws.sonos.com";
     static constexpr const char* API_BASE = "/control/api/v1";
 
+    // Cache built by getHouseholds(): groupId → householdId
+    std::map<std::string, std::string> group_to_household_;
+
+    // Returns the access token for the household that owns group_id.
+    // Falls back to the first stored token if the group isn't cached yet.
+    std::string tokenForGroup(const std::string& group_id) const;
+
     nlohmann::json apiGet(const std::string& path);
     nlohmann::json apiPost(const std::string& path,
                            const nlohmann::json& body = nullptr);
+    // Versions that use an explicit token (for iterating across households)
+    nlohmann::json apiGetAs(const std::string& path,
+                            const std::string& token) const;
+    nlohmann::json apiPostAs(const std::string& path,
+                             const std::string& token,
+                             const nlohmann::json& body = nullptr) const;
 };
 
 // ── Register /api/* routes on the HTTP server ─────────────────────────────────

@@ -1,11 +1,11 @@
 # My Custom Sonos Radio
 
-A self-hosted music service for Sonos built with C++. Serves your local MP3 library to any Sonos player on your network via the Sonos Music API (SMAPI), with voice control support ("Hey Sonos, play boygenius") and a Control API for play/pause/volume commands.
+A self-hosted music service for Sonos built with C++. Serves your local MP3 library to any Sonos player on your network via the Sonos Music API (SMAPI).
 
 ## How it works
 
 ```
-Browsing & voice:  Sonos app → Sonos cloud → ngrok → your server
+Browsing:  Sonos app → Sonos cloud → ngrok → your server
 Audio streaming:   Sonos player → your laptop LAN IP directly
 ```
 
@@ -133,17 +133,6 @@ curl -X POST http://localhost:8080/api/volume \
   -H "Content-Type: application/json" \
   -d '{"groupId":"YOUR_GROUP_ID","volume":30}'
 ```
-
----
-
-## Voice control
-
-With Sonos Voice Control enabled on your player, you can say:
-
-> "Hey Sonos, play boygenius"
-
-The server handles `getMatchingSonosMusicObjects` and matches against your folder and track names.
-
 ---
 
 ## Notes

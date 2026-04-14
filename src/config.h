@@ -1,7 +1,13 @@
 #pragma once
 #include <string>
+#include <map>
 #include <cstdlib>
 #include <stdexcept>
+
+struct TokenPair {
+    std::string access_token;
+    std::string refresh_token;
+};
 
 struct Config {
     std::string media_dir;
@@ -20,7 +26,10 @@ struct Config {
     std::string sonos_client_id;
     std::string sonos_client_secret;
 
-    // Populated after OAuth completes
+    // Tokens per household — supports multiple authorized Sonos accounts
+    std::map<std::string, TokenPair> household_tokens;
+
+    // Most recently authorized token (used for status page / fallback)
     std::string access_token;
     std::string refresh_token;
 
@@ -29,7 +38,8 @@ struct Config {
         cfg.media_dir          = env_or("MEDIA_DIR",      "/app/media_assets");
         cfg.server_host        = env_or("SERVER_HOST",    "0.0.0.0");
         cfg.server_port        = std::stoi(env_or("SERVER_PORT", "8080"));
-        cfg.ngrok_url          = env_or("NGROK_URL",      "");  // overridden at runtime
+        // PUBLIC_URL takes precedence; NGROK_URL kept for local dev backward compat
+        cfg.ngrok_url          = env_or("PUBLIC_URL", env_or("NGROK_URL", ""));
         cfg.media_base_url     = env_or("MEDIA_BASE_URL", "");  // defaults to ngrok_url
         cfg.sonos_client_id    = env_or("SONOS_CLIENT_ID",     "");
         cfg.sonos_client_secret= env_or("SONOS_CLIENT_SECRET", "");
