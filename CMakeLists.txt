@@ -35,7 +35,6 @@ add_executable(maggie_sonos
   src/main.cpp
   src/smapi_handler.cpp
   src/media_handler.cpp
-  src/sonos_discovery.cpp
   src/control_api.cpp
   src/oauth_handler.cpp
 )
