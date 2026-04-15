@@ -4,17 +4,21 @@ set -euo pipefail
 
 BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 
-# Use 'docker compose' plugin if available, fall back to '$DC'
+# Use 'docker compose' plugin if available, fall back to 'docker-compose'
 if docker compose version &>/dev/null 2>&1; then
     DC="docker compose"
 else
-    DC="$DC"
+    DC="docker-compose"
 fi
 
 echo -e "${BLUE}╔═══════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   Maggie Sonos Integration — Demo     ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════╝${NC}"
 echo ""
+
+# ── Pull latest code ───────────────────────────────────────────────────────────
+echo -e "${BLUE}Pulling latest from main...${NC}"
+git pull origin main
 
 # ── Pre-flight checks ──────────────────────────────────────────────────────────
 if [ ! -f .env ]; then

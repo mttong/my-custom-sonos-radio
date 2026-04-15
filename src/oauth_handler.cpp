@@ -233,9 +233,42 @@ void registerOAuthRoutes(httplib::Server& svr, Config& cfg) {
     svr.Get("/auth/status", [&cfg](const httplib::Request&,
                                    httplib::Response& res) {
         json j = {
-            {"authenticated", !cfg.access_token.empty()},
+            {"authenticated", !cfg.household_tokens.empty()},
+            {"households",    (int)cfg.household_tokens.size()},
             {"client_id_set", !cfg.sonos_client_id.empty()}
         };
         res.set_content(j.dump(2), "application/json");
+    });
+
+    // GET /auth/accounts — list all linked households
+    svr.Get("/auth/accounts", [&cfg](const httplib::Request&,
+                                     httplib::Response& res) {
+        json accounts = json::array();
+        for (auto& [hh_id, _] : cfg.household_tokens)
+            accounts.push_back({{"householdId", hh_id}});
+        res.set_content(accounts.dump(2), "application/json");
+    });
+
+    // POST /auth/unlink?householdId=XXX — remove one household's tokens
+    // POST /auth/unlink — remove all tokens
+    svr.Post("/auth/unlink", [&cfg](const httplib::Request& req,
+                                    httplib::Response& res) {
+        std::string hh_id = req.get_param_value("householdId");
+        if (hh_id.empty()) {
+            cfg.household_tokens.clear();
+            cfg.access_token.clear();
+            cfg.refresh_token.clear();
+            std::cout << "[oauth] All accounts unlinked\n";
+        } else {
+            cfg.household_tokens.erase(hh_id);
+            cfg.access_token = cfg.household_tokens.empty()
+                ? "" : cfg.household_tokens.begin()->second.access_token;
+            std::cout << "[oauth] Unlinked household: " << hh_id << "\n";
+        }
+        saveTokens(cfg);
+        res.set_content(
+            "<h2>Unlinked.</h2><p><a href='/'>Back to status page</a></p>"
+            "<p><a href='/auth/login'>Link another account</a></p>",
+            "text/html");
     });
 }

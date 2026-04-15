@@ -80,7 +80,7 @@ static std::string statusPage(const Config& cfg,
   pre{background:#f8f8f8;padding:12px;border-radius:4px;overflow:auto;}
 </style>
 </head><body>
-<h1>Maggie Local Music — Sonos Server</h1>
+<h1>Maggie Local Music - Sonos Server</h1>
 <table>
   <tr><td><b>SMAPI Endpoint</b></td><td><code>)" + cfg.public_base_url() + R"(/smapi</code></td></tr>
   <tr><td><b>Media Base URL</b></td><td><code>)" + cfg.public_base_url() + R"(/media/</code></td></tr>
@@ -94,11 +94,11 @@ static std::string statusPage(const Config& cfg,
 </form>
 <table>
   <tr><th>Name</th><th>IP</th><th>Model</th><th>UUID</th></tr>
-  )" + (players_html.empty() ? "<tr><td colspan=4>None found — click Scan Network</td></tr>" : players_html) + R"(
+  )" + (players_html.empty() ? "<tr><td colspan=4>None found- click Scan Network</td></tr>" : players_html) + R"(
 </table>
 
 <h2>Register with Sonos App (SMAPI)</h2>
-<p>In the Sonos app: <b>Settings → Services &amp; Voice → Add a Service</b><br>
+<p>In the Sonos app: <b>Settings -> Services &amp; Voice -> Add a Service</b><br>
 Your service will appear once registered via the developer portal with:<br>
 <code>SMAPI Endpoint: )" + cfg.public_base_url() + R"(/smapi</code></p>
 
