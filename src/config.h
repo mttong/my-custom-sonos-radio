@@ -7,6 +7,7 @@
 struct TokenPair {
     std::string access_token;
     std::string refresh_token;
+    std::string name;  // user-provided display name
 };
 
 struct Config {

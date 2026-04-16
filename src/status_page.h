@@ -8,11 +8,12 @@ static std::string statusPage(const Config& cfg) {
     if (cfg.household_tokens.empty()) {
         accounts_html = "<p style='color:#888'>No accounts linked yet.</p>";
     } else {
-        for (auto& [hh_id, _] : cfg.household_tokens) {
+        for (auto& [hh_id, pair] : cfg.household_tokens) {
+            std::string display = pair.name.empty() ? hh_id : pair.name;
             accounts_html +=
                 "<div style='display:flex;align-items:center;justify-content:space-between;"
                 "padding:10px 14px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;'>"
-                "<span style='font-family:monospace;font-size:.9em;color:#333'>" + hh_id + "</span>"
+                "<span style='font-size:.95em;color:#333'>" + display + "</span>"
                 "<form method='POST' action='/auth/unlink?householdId=" + hh_id + "' style='margin:0'>"
                 "<button type='submit' style='background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;"
                 "padding:4px 12px;border-radius:4px;cursor:pointer;font-size:.85em'>Unlink</button>"

@@ -57,7 +57,8 @@ static void saveTokens(const Config& cfg) {
         for (auto& [hh_id, pair] : cfg.household_tokens) {
             j["households"][hh_id] = {
                 {"access_token",  pair.access_token},
-                {"refresh_token", pair.refresh_token}
+                {"refresh_token", pair.refresh_token},
+                {"name",          pair.name}
             };
         }
         std::ofstream f(TOKEN_FILE);
@@ -78,6 +79,7 @@ static void loadTokens(Config& cfg) {
                 TokenPair pair;
                 pair.access_token  = tok.value("access_token",  "");
                 pair.refresh_token = tok.value("refresh_token", "");
+                pair.name          = tok.value("name",          "");
                 if (!pair.access_token.empty())
                     cfg.household_tokens[hh_id] = pair;
             }
@@ -217,11 +219,9 @@ void registerOAuthRoutes(httplib::Server& svr, Config& cfg) {
         }
 
         if (exchangeCode(cfg, code)) {
-            res.set_content(
-                "<h2>Authorised!</h2>"
-                "<p>Your Sonos account is linked. You can close this tab.</p>"
-                "<p><a href='/'>Back to status page</a></p>",
-                "text/html");
+            // Redirect to naming page for the most recently added household
+            std::string hh_id = cfg.household_tokens.rbegin()->first;
+            res.set_redirect(("/auth/name?householdId=" + hh_id).c_str());
         } else {
             res.set_content("<h2>Token exchange failed — check server logs</h2>",
                             "text/html");
@@ -238,6 +238,46 @@ void registerOAuthRoutes(httplib::Server& svr, Config& cfg) {
             {"client_id_set", !cfg.sonos_client_id.empty()}
         };
         res.set_content(j.dump(2), "application/json");
+    });
+
+    // GET /auth/name?householdId=XXX — show naming form after OAuth
+    svr.Get("/auth/name", [](const httplib::Request& req,
+                              httplib::Response& res) {
+        std::string hh_id = req.get_param_value("householdId");
+        res.set_content(
+            R"(<!DOCTYPE html><html><head>
+<title>Name your household</title>
+<style>
+  body{font-family:sans-serif;max-width:480px;margin:80px auto;padding:0 24px;color:#111;}
+  h1{font-size:1.4em;margin-bottom:8px;}
+  p{color:#555;margin-bottom:24px;}
+  input{width:100%;padding:10px 12px;font-size:1em;border:1px solid #ddd;
+        border-radius:6px;box-sizing:border-box;margin-bottom:16px;}
+  button{background:#000;color:#fff;padding:10px 22px;border:none;
+         border-radius:6px;font-size:.95em;cursor:pointer;}
+  button:hover{background:#222;}
+</style></head><body>
+<h1>Account linked!</h1>
+<p>Give this household a name so you can identify it on the dashboard.</p>
+<form method='POST' action='/auth/name'>
+  <input type='hidden' name='householdId' value=')" + hh_id + R"('>
+  <input type='text' name='name' placeholder='e.g. Living Room' autofocus>
+  <button type='submit'>Save</button>
+</form>
+</body></html>)", "text/html");
+    });
+
+    // POST /auth/name — save the household name
+    svr.Post("/auth/name", [&cfg](const httplib::Request& req,
+                                   httplib::Response& res) {
+        std::string hh_id = req.get_param_value("householdId");
+        std::string name  = req.get_param_value("name");
+        auto it = cfg.household_tokens.find(hh_id);
+        if (it != cfg.household_tokens.end()) {
+            it->second.name = name.empty() ? hh_id : name;
+            saveTokens(cfg);
+        }
+        res.set_redirect("/");
     });
 
     // GET /auth/accounts — list all linked households
