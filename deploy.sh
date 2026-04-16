@@ -19,7 +19,6 @@ echo ""
 # ── Pull latest code ───────────────────────────────────────────────────────────
 echo -e "${BLUE}Pulling latest from main...${NC}"
 git pull origin main
-git submodule update --init --recursive
 
 # ── Pre-flight checks ──────────────────────────────────────────────────────────
 if [ ! -f .env ]; then
