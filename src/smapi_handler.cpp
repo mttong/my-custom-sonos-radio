@@ -439,7 +439,7 @@ std::string SMAPIHandler::folderXml(const FolderInfo& f) const {
            "<itemType>albumList</itemType>"
            "<title>" + xmlEscape(f.name) + "</title>" +
            art_elem +
-           "<canPlay>false</canPlay>"
+           "<canPlay>true</canPlay>"
            "<canEnumerate>true</canEnumerate>"
            "<canAddToFavorites>false</canAddToFavorites>"
            "</mediaCollection>";
