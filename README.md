@@ -1,51 +1,79 @@
-# My Custom Sonos Radio
+# Maggie's Custom Radio
 
-A self-hosted music service for Sonos built with C++. Serves your local MP3 library to any Sonos player on your network via the Sonos Music API (SMAPI).
+A self-hosted music service for Sonos built in C++. Streams a curated personal library to any Sonos player via the Sonos Music API (SMAPI). Running 24/7 on a cloud server at `https://maggie-sonos.ngrok-free.app`.
+
+---
+
+## Using the service
+
+### Want access?
+
+The service is in **sandbox mode** — Sonos requires your household ID to be allowlisted before you can add it. Contact me and I'll get you added.
+
+Once added:
+
+1. Open the **Sonos desktop app** (Windows or Mac)
+2. Go to **Settings → Services & Voice → Add a Service**
+3. Find **Maggie's Custom Radio** and tap **Add**
+4. Complete the linking flow
+
+> **Note:** Use the desktop app (Windows or Mac) for the initial setup — authentication on the iOS/Android app is unreliable in sandbox mode. Once you've linked on desktop you can go back to using the mobile app normally for browsing and playback.
+
+### What's in the library
+
+Browse albums, search by artist or track name, and play directly to any Sonos speaker. Tracks are served from the cloud server — no local machine needs to be running.
+
+---
 
 ## How it works
 
 ```
-Browsing:  Sonos app → Sonos cloud → ngrok → your server
-Audio streaming:   Sonos player → your laptop LAN IP directly
+Browsing:   Sonos app → Sonos cloud → ngrok → VM server
+Streaming:  Sonos player → ngrok → VM server → audio
 ```
 
-SMAPI browsing calls are proxied through the Sonos cloud, so they need a public HTTPS URL (ngrok). Audio streams directly from your laptop to the Sonos player over WiFi, bypassing ngrok entirely. The server auto-detects your LAN IP at startup so this works on any network.
-
-## Prerequisites
-
-- Docker and Docker Compose
-- A free [ngrok](https://ngrok.com) account
-- A [Sonos developer account](https://developer.sonos.com)
-- A Sonos player (S2 firmware)
+All traffic routes through a cloud VM via ngrok. No local machine required once deployed.
 
 ---
 
-## Setup
+## Self-hosting
+
+### Prerequisites
+
+- A cloud VM (DigitalOcean, AWS, etc.) or a machine with a public IP
+- Docker and Docker Compose
+- A free [ngrok](https://ngrok.com) account with a static domain
+- A [Sonos developer account](https://developer.sonos.com)
 
 ### 1. Clone the repo
 
 ```bash
-git clone git@github.com:mttong/my-custom-sonos-radio.git
+git clone --recurse-submodules git@github.com:mttong/my-custom-sonos-radio.git
 cd my-custom-sonos-radio
 ```
 
 ### 2. Add your music
 
-Drop MP3 folders into `media_assets/`. Each folder becomes an album — the folder name is used as the artist and album name. Add a JPEG named after the folder for album art.
+Drop MP3 folders into `media_assets/`. Each subfolder becomes an album. Add a `cover.jpg` inside each folder for album art. Track titles, artist, and album are read from embedded ID3 tags — filenames are used as fallback.
 
 ```
 media_assets/
-  boygenius/
-    me_and_my_dog.mp3
-    bite_the_hand.mp3
-    stay_down.mp3
-    boygenius.jpg       ← album art (filename must match folder name)
+  Daft Punk - Alive 2007/
+    one_more_time.mp3
+    harder_better_faster_stronger.mp3
+    cover.jpg
+```
+
+To sync your local media_assets to the VM:
+
+```bash
+./sync_media.sh
 ```
 
 ### 3. Set up ngrok
 
 1. Sign up at [ngrok.com](https://ngrok.com)
-2. Claim a **free static domain** at [dashboard.ngrok.com/domains](https://dashboard.ngrok.com/domains) — this never changes across restarts, which keeps your Sonos service registration valid permanently
+2. Claim a **free static domain** at [dashboard.ngrok.com/domains](https://dashboard.ngrok.com/domains)
 3. Copy your auth token from [dashboard.ngrok.com/get-started/your-authtoken](https://dashboard.ngrok.com/get-started/your-authtoken)
 
 ### 4. Register a Sonos Music Service (SMAPI)
@@ -53,13 +81,13 @@ media_assets/
 1. Go to [developer.sonos.com](https://developer.sonos.com) and create a **Music Service Integration**
 2. Set the SMAPI endpoint to `https://<your-ngrok-domain>/smapi`
 3. Set authentication type to **Anonymous**
-4. Note the **Service ID** — you'll need it to add the service in the Sonos app
+4. Add household IDs under **Sandbox Users** for anyone you want to grant access
 
 ### 5. Register a Sonos Control Integration (optional)
 
-Needed for play/pause/volume API commands. Skip if you only want browsing and playback.
+Enables play/pause/volume via the REST API.
 
-1. At [developer.sonos.com](https://developer.sonos.com), create a **Control Integration**
+1. Create a **Control Integration** at [developer.sonos.com](https://developer.sonos.com)
 2. Set the redirect URI to `https://<your-ngrok-domain>/oauth/callback`
 3. Copy the **Client ID** and **Client Secret**
 
@@ -69,48 +97,30 @@ Needed for play/pause/volume API commands. Skip if you only want browsing and pl
 cp .env.example .env
 ```
 
-Open `.env` and fill in:
-
 ```env
 NGROK_AUTHTOKEN=your_ngrok_auth_token
 NGROK_DOMAIN=your-subdomain.ngrok-free.app
 NGROK_URL=https://your-subdomain.ngrok-free.app
 
-SONOS_CLIENT_ID=your_sonos_client_id       # only needed for Control API
+SONOS_CLIENT_ID=your_sonos_client_id
 SONOS_CLIENT_SECRET=your_sonos_client_secret
 ```
 
-### 7. Start the server
+### 7. Deploy
 
 ```bash
-./demo.sh
+./deploy.sh
 ```
 
-This builds the Docker image, starts the server and ngrok tunnel, waits for health, and tails the logs. The web UI will open at `http://localhost:8080`.
-
-To stop:
+Builds the Docker image, starts the server and ngrok tunnel, waits for health, and tails the logs.
 
 ```bash
-./stop.sh
+./stop.sh   # stop everything
 ```
-
-### 8. Add the service to your Sonos app
-
-> **Note:** Use the **Windows or Mac desktop Sonos app** for initial setup — the iOS app has a known issue with sandbox service authorization.
-
-1. Open the Sonos app → **Settings → Services & Voice → Add a Service**
-2. Find your service by name and tap **Add**
-3. Complete the linking flow
-
-Your music library will now appear in the Sonos app. Browse by folder, tap a track to play.
-
-### 9. Authorize the Control API (optional)
-
-Visit `http://localhost:8080/auth/login` and complete the OAuth flow to enable play/pause/volume commands.
 
 ---
 
-## API Reference
+## REST API
 
 ```
 GET  /api/households          → list groups and their IDs
@@ -119,24 +129,24 @@ POST /api/pause               {"groupId":"..."}
 POST /api/next                {"groupId":"..."}
 POST /api/volume              {"groupId":"...", "volume":50}
 GET  /api/status/:groupId     → current playback state
-POST /api/discover            → re-scan network for Sonos players
 GET  /auth/login              → start OAuth flow (Control API)
 GET  /health                  → health check
 ```
 
-Example — get groups then set volume:
+Example:
 
 ```bash
-curl http://localhost:8080/api/households
+curl https://maggie-sonos.ngrok-free.app/api/households
 
-curl -X POST http://localhost:8080/api/volume \
+curl -X POST https://maggie-sonos.ngrok-free.app/api/volume \
   -H "Content-Type: application/json" \
   -d '{"groupId":"YOUR_GROUP_ID","volume":30}'
 ```
+
 ---
 
 ## Notes
 
-- The server auto-detects your LAN IP at startup — audio streaming works on any WiFi network without configuration
 - OAuth tokens are persisted to `tokens.json` and survive restarts
 - Adding new music to `media_assets/` is picked up immediately on the next browse — no restart needed
+- Access tokens expire after 24h — re-authorize via the web UI at `/auth/login`
