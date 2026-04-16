@@ -436,7 +436,7 @@ std::string SMAPIHandler::folderXml(const FolderInfo& f) const {
 
     return "<mediaCollection>"
            "<id>"    + xmlEscape(f.id)   + "</id>"
-           "<itemType>albumList</itemType>"
+           "<itemType>album</itemType>"
            "<title>" + xmlEscape(f.name) + "</title>" +
            art_elem +
            "<canPlay>true</canPlay>"
