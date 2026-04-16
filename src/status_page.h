@@ -57,15 +57,15 @@ static std::string statusPage(const Config& cfg) {
 SMAPI:  )" + cfg.public_base_url() + R"(/smapi
 Media:  )" + cfg.media_url_base() + R"(/media/
 
-GET  /api/households        → list groups
+GET  /api/households        -> list groups
 POST /api/play              {"groupId":"..."}
 POST /api/pause             {"groupId":"..."}
 POST /api/next              {"groupId":"..."}
 POST /api/volume            {"groupId":"...", "volume":50}
-GET  /api/status/:groupId   → playback state
-GET  /auth/accounts         → list linked households
-POST /auth/unlink           → unlink all
-POST /auth/unlink?householdId=X → unlink one
+GET  /api/status/:groupId   -> playback state
+GET  /auth/accounts         -> list linked households
+POST /auth/unlink           -> unlink all
+POST /auth/unlink?householdId=X -> unlink one
   </pre>
 </details>
 </body></html>)";
