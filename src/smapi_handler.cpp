@@ -3,10 +3,72 @@
 
 #include <tinyxml2.h>
 #include <algorithm>
+#include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 
 namespace fs = std::filesystem;
+
+// ── Lightweight ID3v2 tag reader ──────────────────────────────────────────────
+struct TrackTags { std::string title, artist, album; };
+
+static uint32_t synchsafe(const uint8_t* b) {
+    return ((uint32_t)(b[0] & 0x7f) << 21) | ((uint32_t)(b[1] & 0x7f) << 14) |
+           ((uint32_t)(b[2] & 0x7f) <<  7) |  (uint32_t)(b[3] & 0x7f);
+}
+
+static std::string decodeTextFrame(const uint8_t* data, uint32_t size) {
+    if (size == 0) return {};
+    uint8_t enc = data[0];
+    const uint8_t* text = data + 1;
+    uint32_t len = size - 1;
+    std::string result;
+    if (enc == 0 || enc == 3) {
+        result = std::string(reinterpret_cast<const char*>(text), len);
+    } else if (enc == 1 || enc == 2) {
+        if (len >= 2 && ((text[0] == 0xFF && text[1] == 0xFE) ||
+                         (text[0] == 0xFE && text[1] == 0xFF)))
+            { text += 2; len -= 2; }
+        for (uint32_t i = 0; i + 1 < len; i += 2)
+            if (text[i+1] == 0 && text[i] != 0) result += static_cast<char>(text[i]);
+    }
+    while (!result.empty() && result.back() == '\0') result.pop_back();
+    return result;
+}
+
+static TrackTags readID3Tags(const std::string& path) {
+    TrackTags tags;
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return tags;
+
+    uint8_t hdr[10];
+    f.read(reinterpret_cast<char*>(hdr), 10);
+    if (f.gcount() < 10 || hdr[0] != 'I' || hdr[1] != 'D' || hdr[2] != '3') return tags;
+
+    uint8_t ver = hdr[3];
+    uint32_t tag_size = synchsafe(hdr + 6);
+    std::vector<uint8_t> data(tag_size);
+    f.read(reinterpret_cast<char*>(data.data()), tag_size);
+
+    uint32_t pos = 0;
+    while (pos + 10 <= tag_size) {
+        std::string fid(reinterpret_cast<char*>(data.data() + pos), 4);
+        if (!isupper((unsigned char)fid[0])) break;
+        uint32_t fsz = (ver >= 4)
+            ? synchsafe(data.data() + pos + 4)
+            : (((uint32_t)data[pos+4] << 24) | ((uint32_t)data[pos+5] << 16) |
+               ((uint32_t)data[pos+6] <<  8) |  (uint32_t)data[pos+7]);
+        pos += 10;
+        if (fsz == 0 || pos + fsz > tag_size) break;
+        if      (fid == "TIT2") tags.title  = decodeTextFrame(data.data() + pos, fsz);
+        else if (fid == "TPE1") tags.artist = decodeTextFrame(data.data() + pos, fsz);
+        else if (fid == "TALB") tags.album  = decodeTextFrame(data.data() + pos, fsz);
+        pos += fsz;
+        if (!tags.title.empty() && !tags.artist.empty() && !tags.album.empty()) break;
+    }
+    return tags;
+}
 
 // ── Constructor ───────────────────────────────────────────────────────────────
 SMAPIHandler::SMAPIHandler(Config& cfg) : cfg_(cfg) {}
@@ -355,10 +417,12 @@ std::vector<TrackInfo> SMAPIHandler::listTracks(const std::string& folder) const
 
         TrackInfo t;
         t.path    = entry.path().string();
-        t.artist  = folder;
-        t.album   = folder;
-        t.title   = entry.path().stem().string();
-        std::replace(t.title.begin(), t.title.end(), '_', ' ');
+        auto stem = entry.path().stem().string();
+        std::replace(stem.begin(), stem.end(), '_', ' ');
+        auto id3  = readID3Tags(t.path);
+        t.title   = id3.title.empty()  ? stem   : id3.title;
+        t.artist  = id3.artist.empty() ? folder : id3.artist;
+        t.album   = id3.album.empty()  ? folder : id3.album;
         t.id      = "track:" + folder + "/" + entry.path().filename().string();
         t.art_url = art;
         tracks.push_back(std::move(t));
@@ -381,10 +445,12 @@ TrackInfo SMAPIHandler::trackById(const std::string& smapi_id) const {
     TrackInfo t;
     t.id      = smapi_id;
     t.path    = (fs::path(cfg_.media_dir) / folder / filename).string();
-    t.artist  = folder;
-    t.album   = folder;
-    t.title   = fs::path(filename).stem().string();
-    std::replace(t.title.begin(), t.title.end(), '_', ' ');
+    auto stem = fs::path(filename).stem().string();
+    std::replace(stem.begin(), stem.end(), '_', ' ');
+    auto id3  = readID3Tags(t.path);
+    t.title   = id3.title.empty()  ? stem   : id3.title;
+    t.artist  = id3.artist.empty() ? folder : id3.artist;
+    t.album   = id3.album.empty()  ? folder : id3.album;
     t.art_url = albumArtUrl(folder);
 
     if (!fs::exists(t.path)) return {};
