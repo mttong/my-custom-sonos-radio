@@ -157,9 +157,13 @@ std::string SMAPIHandler::getMetadata(const std::string& id,
     std::string items;
     int total = 0;
 
+    std::cout << "[smapi] getMetadata id=" << id
+              << " index=" << index << " count=" << count << "\n";
+
     if (id == "root") {
         auto folders = listFolders();
         total = static_cast<int>(folders.size());
+        std::cout << "[smapi] root has " << total << " folders\n";
         int end = std::min(index + count, total);
         for (int i = index; i < end; ++i) items += folderXml(folders[i]);
         return wrapResult("getMetadata", index, end - index, total, items);
