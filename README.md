@@ -2,6 +2,8 @@
 
 A self-hosted music service for Sonos built in C++. Streams a curated personal library to any Sonos player via the Sonos Music API (SMAPI). Running 24/7 on a cloud server at `https://maggie-sonos.ngrok-free.app`.
 
+See [COMPONENTS.md](COMPONENTS.md) for architecture, SMAPI methods, and technical details.
+
 ---
 
 ## Using the service
@@ -17,22 +19,7 @@ Once added:
 3. Find **Maggie's Custom Radio** and tap **Add**
 4. Complete the linking flow
 
-> **Note:** Use the desktop app (Windows or Mac) for the initial setup — authentication on the iOS/Android app is unreliable in sandbox mode. Once you've linked on desktop you can go back to using the mobile app normally for browsing and playback.
-
-### What's in the library
-
-Browse albums, search by artist or track name, and play directly to any Sonos speaker. Tracks are served from the cloud server — no local machine needs to be running.
-
----
-
-## How it works
-
-```
-Browsing:   Sonos app → Sonos cloud → ngrok → VM server
-Streaming:  Sonos player → ngrok → VM server → audio
-```
-
-All traffic routes through a cloud VM via ngrok. No local machine required once deployed.
+> **Note:** Use the desktop app (Windows or Mac) for initial setup — authentication on the iOS/Android app is unreliable in sandbox mode. Once linked on desktop you can use the mobile app normally for browsing and playback.
 
 ---
 
@@ -60,11 +47,10 @@ Drop MP3 folders into `media_assets/`. Each subfolder becomes an album. Add a `c
 media_assets/
   Daft Punk - Alive 2007/
     one_more_time.mp3
-    harder_better_faster_stronger.mp3
     cover.jpg
 ```
 
-To sync your local media_assets to the VM:
+To sync your local media to the VM:
 
 ```bash
 ./sync_media.sh
@@ -109,13 +95,8 @@ SONOS_CLIENT_SECRET=your_sonos_client_secret
 ### 7. Deploy
 
 ```bash
-./deploy.sh
-```
-
-Builds the Docker image, starts the server and ngrok tunnel, waits for health, and tails the logs.
-
-```bash
-./stop.sh   # stop everything
+./deploy.sh   # build, start, tail logs
+./stop.sh     # stop everything
 ```
 
 ---
@@ -142,11 +123,3 @@ curl -X POST https://maggie-sonos.ngrok-free.app/api/volume \
   -H "Content-Type: application/json" \
   -d '{"groupId":"YOUR_GROUP_ID","volume":30}'
 ```
-
----
-
-## Notes
-
-- OAuth tokens are persisted to `tokens.json` and survive restarts
-- Adding new music to `media_assets/` is picked up immediately on the next browse — no restart needed
-- Access tokens expire after 24h — re-authorize via the web UI at `/auth/login`
